@@ -46,6 +46,7 @@ function starterSchema() {
     'DATABASE_URL:url:required:Database connection URL',
     'ADMIN_EMAIL:email:optional:Admin contact email',
     'FEATURE_FLAGS:boolean:optional:Enable feature flags',
+    'SENTRY_DSN:url:optional:Sentry DSN',
     '@require-if:NODE_ENV=production:SENTRY_DSN:SENTRY_DSN is required in production',
     ''
   ].join('\n');
@@ -78,7 +79,7 @@ function inferType(key, value) {
     return 'email';
   }
 
-  if (/_?PORT$|PORT_/.test(key) && isPort(value)) {
+  if (/(^|_)PORT$|^PORT_/.test(key) && isPort(value)) {
     return 'port';
   }
 

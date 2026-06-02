@@ -1,6 +1,6 @@
 {
   "name": "@virajshoor/envguard",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Validate .env files against a typed .env.schema before bad config breaks your deploy.",
   "main": "lib/validator.js",
   "bin": {

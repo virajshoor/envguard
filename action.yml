@@ -22,6 +22,10 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Install envguard dependencies
+      shell: bash
+      run: npm ci --omit=dev --prefix "$GITHUB_ACTION_PATH"
+
     - name: Run envguard
       shell: bash
       run: |
@@ -35,4 +39,4 @@ runs:
           args+=(--json)
         fi
 
-        npx @virajshoor/envguard "${args[@]}"
+        node "$GITHUB_ACTION_PATH/bin/envguard.js" "${args[@]}"

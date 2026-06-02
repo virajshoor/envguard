@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 const { parseEnvContent, parseSchemaContent } = require('../lib/parser');
-const { validate, isBoolean, isEmail, isJson, isPort, isUrl } = require('../lib/validator');
+const { validate, checkType, isBoolean, isEmail, isJson, isPort, isUrl } = require('../lib/validator');
 
 test('validates a correct env file', () => {
   const env = parseEnvContent(`
@@ -127,6 +127,13 @@ SENTRY_DSN:url:optional:Sentry DSN
   const results = validate(env, schema);
 
   assert.equal(results.some((result) => result.key === 'SENTRY_DSN' && result.reason === 'SENTRY_DSN is required in production'), true);
+  assert.equal(results.some((result) => result.key === 'SENTRY_DSN' && result.reason === 'Optional key not set'), false);
+});
+
+test('rejects invalid type arguments and ranges', () => {
+  assert.equal(checkType('ok', 'string(foo)'), 'Type "string" does not accept arguments');
+  assert.equal(checkType('2', 'integer(1.5,3)'), 'Invalid integer range');
+  assert.equal(checkType('2', 'number(10,1)'), 'Invalid number range');
 });
 
 test('prints machine-readable json without env values', () => {
@@ -162,6 +169,7 @@ test('generates a schema from an existing env file', () => {
     'DATABASE_URL=https://example.com/db',
     'FEATURE_FLAGS=false',
     'MAX_RETRIES=3',
+    'AIRPORT=3000',
     ''
   ].join('\n'), 'utf8');
 
@@ -179,4 +187,5 @@ test('generates a schema from an existing env file', () => {
   assert.match(schema, /DATABASE_URL:url:required/);
   assert.match(schema, /FEATURE_FLAGS:boolean:required/);
   assert.match(schema, /MAX_RETRIES:integer:required/);
+  assert.match(schema, /AIRPORT:integer:required/);
 });
