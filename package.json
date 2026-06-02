@@ -1,5 +1,5 @@
 {
-  "name": "envguard",
+  "name": "@virajshoor/envguard",
   "version": "1.0.0",
   "description": "Validate .env files against a typed .env.schema before bad config breaks your deploy.",
   "main": "lib/validator.js",

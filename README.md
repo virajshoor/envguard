@@ -11,7 +11,7 @@
 
 ### Validate your env config before it breaks your deploy.
 
-[![npm version](https://img.shields.io/npm/v/envguard.svg?logo=npm)](https://www.npmjs.com/package/envguard)
+[![npm version](https://img.shields.io/npm/v/@virajshoor/envguard.svg?logo=npm)](https://www.npmjs.com/package/@virajshoor/envguard)
 [![CI](https://github.com/virajshoor/envguard/actions/workflows/ci.yml/badge.svg)](https://github.com/virajshoor/envguard/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D18.3-339933.svg?logo=node.js&logoColor=white)](https://nodejs.org)
@@ -56,13 +56,14 @@ FAIL   | ADMIN_EMAIL  | email  | no       | Expected a valid email address
 ## Install
 
 ```bash
-npm install -g envguard
+npm install -g @virajshoor/envguard
 ```
 
-Or try it instantly with no install — straight from npm:
+This installs the `envguard` command globally. Or try it instantly with no
+install — straight from npm:
 
 ```bash
-npx envguard check
+npx @virajshoor/envguard check
 ```
 
 Or run it from a clone of this repo:
@@ -159,7 +160,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install -g envguard
+      - run: npm install -g @virajshoor/envguard
       - run: envguard check --env .env.example
 ```
 
