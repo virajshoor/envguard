@@ -6,6 +6,12 @@
   "bin": {
     "envguard": "bin/envguard.js"
   },
+  "files": [
+    "bin/",
+    "lib/",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "test": "node --test",
     "lint": "node --check bin/envguard.js && node --check lib/parser.js && node --check lib/validator.js && node --check lib/reporter.js && node --check test/validator.test.js"

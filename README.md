@@ -11,6 +11,8 @@
 
 ### Validate your env config before it breaks your deploy.
 
+[![npm version](https://img.shields.io/npm/v/envguard.svg?logo=npm)](https://www.npmjs.com/package/envguard)
+[![CI](https://github.com/virajshoor/envguard/actions/workflows/ci.yml/badge.svg)](https://github.com/virajshoor/envguard/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D18.3-339933.svg?logo=node.js&logoColor=white)](https://nodejs.org)
 [![dependencies](https://img.shields.io/badge/runtime%20deps-1-brightgreen.svg)](package.json)
@@ -57,7 +59,13 @@ FAIL   | ADMIN_EMAIL  | email  | no       | Expected a valid email address
 npm install -g envguard
 ```
 
-Or run it straight from this repo without installing anything global:
+Or try it instantly with no install — straight from npm:
+
+```bash
+npx envguard check
+```
+
+Or run it from a clone of this repo:
 
 ```bash
 git clone https://github.com/virajshoor/envguard.git
