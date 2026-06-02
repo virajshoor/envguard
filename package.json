@@ -1,13 +1,15 @@
 {
   "name": "@virajshoor/envguard",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Validate .env files against a typed .env.schema before bad config breaks your deploy.",
   "main": "lib/validator.js",
   "bin": {
     "envguard": "bin/envguard.js"
   },
   "files": [
+    "action.yml",
     "bin/",
+    "examples/",
     "lib/",
     "README.md",
     "LICENSE"
@@ -27,7 +29,9 @@
     "configuration",
     "cli",
     "ci",
-    "devops"
+    "devops",
+    "github-actions",
+    "json"
   ],
   "author": "virajshoor",
   "license": "GPL-3.0-only",

@@ -47,8 +47,11 @@ FAIL   | ADMIN_EMAIL  | email  | no       | Expected a valid email address
 
 ## Highlights
 
-- **Typed validation** — `string`, `number`, `boolean`, `url`, `email`, `port`.
-- **Regex rules** — pin a value to an exact pattern when a type isn't enough.
+- **Typed validation** — `string`, `number`, `integer`, `float`, `boolean`, `url`, `email`, `port`, `json`, and `enum(...)`.
+- **Range and regex rules** — pin numeric values to ranges or strings to exact patterns.
+- **Cross-key rules** — require one key only when another key has a specific value.
+- **Strict mode** — catch extra env keys that are missing from your schema.
+- **JSON output** — machine-readable results for bots, dashboards, and custom CI.
 - **CI-ready** — exits `1` on any failure so a bad env fails the pipeline.
 - **Offline-first** — zero network calls, zero telemetry. Runs fully air-gapped.
 - **Featherweight** — one runtime dependency (`chalk`); everything else is the
@@ -91,11 +94,18 @@ envguard init
 envguard check
 ```
 
+Generate a schema from an existing env file:
+
+```bash
+envguard init --from .env.example
+```
+
 Validate a different env file or schema path:
 
 ```bash
 envguard check --env .env.production
 envguard check --env .env.staging --schema config/env.schema
+envguard check --strict --json
 ```
 
 ## The `.env.schema` format
@@ -118,11 +128,13 @@ Example:
 
 ```text
 # .env.schema
-NODE_ENV:string:required:Application environment:/^(development|test|production)$/
+NODE_ENV:enum(development,test,production):required:Application environment
 PORT:port:required:HTTP server port
 DATABASE_URL:url:required:Database connection URL
 ADMIN_EMAIL:email:optional:Admin contact email
 FEATURE_FLAGS:boolean:optional:Enable feature flags
+SENTRY_DSN:url:optional:Sentry DSN
+@require-if:NODE_ENV=production:SENTRY_DSN:SENTRY_DSN is required in production
 ```
 
 ### Supported types
@@ -131,10 +143,17 @@ FEATURE_FLAGS:boolean:optional:Enable feature flags
 | --- | --- |
 | `string` | Value is present and not empty. |
 | `number` | Value is a finite number like `42`, `0`, or `3.14`. |
+| `number(min,max)` | Value is a finite number inside the inclusive range. |
+| `integer` | Value is a safe integer like `42`, `0`, or `-7`. |
+| `integer(min,max)` | Value is an integer inside the inclusive range. |
+| `float` | Value is a finite numeric value. |
+| `float(min,max)` | Value is a finite numeric value inside the inclusive range. |
 | `boolean` | Value is `true` or `false`, case-insensitive. |
 | `url` | Value is a valid `http` or `https` URL. |
 | `email` | Value looks like a normal email address. |
 | `port` | Value is an integer from `1` to `65535`. |
+| `json` | Value parses as valid JSON. |
+| `enum(a,b,c)` | Value matches one of the listed options exactly. |
 
 Empty values always fail, including optional keys that are present but blank:
 
@@ -142,9 +161,48 @@ Empty values always fail, including optional keys that are present but blank:
 API_KEY=
 ```
 
+### Cross-key rules
+
+Use `@require-if` to make a key required only when another key has a specific
+value:
+
+```text
+SENTRY_DSN:url:optional:Sentry DSN
+@require-if:NODE_ENV=production:SENTRY_DSN:SENTRY_DSN is required in production
+```
+
+This keeps development env files lightweight while still protecting production
+config.
+
+### Strict mode and JSON output
+
+Strict mode fails when the env file contains keys that are not declared in the
+schema:
+
+```bash
+envguard check --strict
+```
+
+JSON output is secret-safe by default: it reports keys, types, pass/fail status,
+and reasons without printing env values.
+
+```bash
+envguard check --json
+```
+
 ## Use in CI
 
-GitHub Actions example — fail the build on bad config:
+Use the reusable GitHub Action for one-line setup:
+
+```yaml
+- uses: virajshoor/envguard@v1
+  with:
+    env: .env.example
+    schema: .env.schema
+    strict: true
+```
+
+Or run the CLI directly in GitHub Actions:
 
 ```yaml
 name: CI
@@ -163,7 +221,7 @@ jobs:
         with:
           node-version: 20
       - run: npm install -g @virajshoor/envguard
-      - run: envguard check --env .env.example
+      - run: envguard check --env .env.example --strict
 ```
 
 ## Privacy & offline-first
@@ -184,17 +242,6 @@ node bin/envguard.js check \
   --env examples/.env.example \
   --schema examples/.env.schema.example
 ```
-
-## Roadmap
-
-envguard is intentionally small, but a few additions are on the table. Feedback
-and votes via [issues](https://github.com/virajshoor/envguard/issues) are welcome:
-
-- More schema types: `enum` (one of a fixed set), integer/float ranges, and `json`.
-- Cross-key rules (e.g. "if `NODE_ENV=production` then `SENTRY_DSN` is required").
-- Auto-generating a `.env.schema` from an existing `.env`.
-- Machine-readable output (`--json`) for tooling and dashboards.
-- A reusable GitHub Action wrapper for one-line CI setup.
 
 ## Contributing
 

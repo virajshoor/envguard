@@ -1,0 +1,38 @@
+name: Envguard
+description: Validate .env files against a typed .env.schema before bad config breaks your deploy.
+
+inputs:
+  env:
+    description: Env file to validate.
+    required: false
+    default: .env
+  schema:
+    description: Schema file to validate against.
+    required: false
+    default: .env.schema
+  strict:
+    description: Fail when the env file contains keys missing from the schema.
+    required: false
+    default: 'false'
+  json:
+    description: Print machine-readable JSON.
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Run envguard
+      shell: bash
+      run: |
+        args=(check --env "${{ inputs.env }}" --schema "${{ inputs.schema }}")
+
+        if [ "${{ inputs.strict }}" = "true" ]; then
+          args+=(--strict)
+        fi
+
+        if [ "${{ inputs.json }}" = "true" ]; then
+          args+=(--json)
+        fi
+
+        npx @virajshoor/envguard "${args[@]}"
