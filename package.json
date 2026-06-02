@@ -1,0 +1,42 @@
+{
+  "name": "envguard",
+  "version": "1.0.0",
+  "description": "Validate .env files against a typed .env.schema before bad config breaks your deploy.",
+  "main": "lib/validator.js",
+  "bin": {
+    "envguard": "bin/envguard.js"
+  },
+  "scripts": {
+    "test": "node --test",
+    "lint": "node --check bin/envguard.js && node --check lib/parser.js && node --check lib/validator.js && node --check lib/reporter.js && node --check test/validator.test.js"
+  },
+  "keywords": [
+    "env",
+    "dotenv",
+    "schema",
+    "validation",
+    "validator",
+    "environment",
+    "config",
+    "configuration",
+    "cli",
+    "ci",
+    "devops"
+  ],
+  "author": "virajshoor",
+  "license": "GPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/virajshoor/envguard.git"
+  },
+  "bugs": {
+    "url": "https://github.com/virajshoor/envguard/issues"
+  },
+  "homepage": "https://github.com/virajshoor/envguard#readme",
+  "engines": {
+    "node": ">=18.3.0"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2"
+  }
+}
