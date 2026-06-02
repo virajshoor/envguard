@@ -87,6 +87,30 @@ SECRET='abc#123'
   assert.equal(env.SECRET, 'abc#123');
 });
 
+test('handles common real-world dotenv syntax', () => {
+  const env = parseEnvContent([
+    'export API_URL=https://example.com/path#fragment',
+    'SPACED = value with spaces   # inline note',
+    'DOUBLE_QUOTED="hello \\"envguard\\""',
+    'ESCAPED="line one\\nline two\\tTabbed"',
+    "SINGLE_QUOTED='line one\\nline two'",
+    ''
+  ].join('\r\n'));
+
+  assert.equal(env.API_URL, 'https://example.com/path#fragment');
+  assert.equal(env.SPACED, 'value with spaces');
+  assert.equal(env.DOUBLE_QUOTED, 'hello "envguard"');
+  assert.equal(env.ESCAPED, 'line one\nline two\tTabbed');
+  assert.equal(env.SINGLE_QUOTED, 'line one\\nline two');
+});
+
+test('reports duplicate dotenv keys with line numbers', () => {
+  assert.throws(
+    () => parseEnvContent('API_KEY=first\nAPI_KEY=second\n'),
+    /Duplicate \.env key on line 2: API_KEY/
+  );
+});
+
 test('supports enum, numeric ranges, and json schema types', () => {
   const env = parseEnvContent(`
 NODE_ENV=production

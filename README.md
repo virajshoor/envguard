@@ -161,6 +161,14 @@ Empty values always fail, including optional keys that are present but blank:
 API_KEY=
 ```
 
+### Dotenv parsing
+
+`envguard` supports common `.env` syntax: `export KEY=value`, quoted values,
+inline comments, Windows line endings, and `#` characters inside values. In
+double-quoted values, common escapes such as `\n`, `\t`, `\"`, and `\\` are
+decoded. Duplicate keys fail fast with a line-numbered error so config mistakes
+do not get silently overwritten.
+
 ### Cross-key rules
 
 Use `@require-if` to make a key required only when another key has a specific
