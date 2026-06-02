@@ -12,6 +12,7 @@
 ### Validate your env config before it breaks your deploy.
 
 [![npm version](https://img.shields.io/npm/v/@virajshoor/envguard.svg?logo=npm)](https://www.npmjs.com/package/@virajshoor/envguard)
+[![npm downloads](https://img.shields.io/npm/dm/@virajshoor/envguard.svg?logo=npm)](https://www.npmjs.com/package/@virajshoor/envguard)
 [![CI](https://github.com/virajshoor/envguard/actions/workflows/ci.yml/badge.svg)](https://github.com/virajshoor/envguard/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D18.3-339933.svg?logo=node.js&logoColor=white)](https://nodejs.org)
@@ -182,6 +183,17 @@ node bin/envguard.js check \
   --env examples/.env.example \
   --schema examples/.env.schema.example
 ```
+
+## Roadmap
+
+envguard is intentionally small, but a few additions are on the table. Feedback
+and votes via [issues](https://github.com/virajshoor/envguard/issues) are welcome:
+
+- More schema types: `enum` (one of a fixed set), integer/float ranges, and `json`.
+- Cross-key rules (e.g. "if `NODE_ENV=production` then `SENTRY_DSN` is required").
+- Auto-generating a `.env.schema` from an existing `.env`.
+- Machine-readable output (`--json`) for tooling and dashboards.
+- A reusable GitHub Action wrapper for one-line CI setup.
 
 ## Contributing
 
