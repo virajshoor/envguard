@@ -211,6 +211,6 @@ npm run lint
 
 ## License
 
-[GNU GPL v3](LICENSE).
+[GNU GPL v3](LICENSE)
 </content>
 </invoke>
