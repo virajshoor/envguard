@@ -7,6 +7,8 @@ const chalk = require('chalk');
 const { parseEnvFile, parseSchemaFile } = require('../lib/parser');
 const { validate, isBoolean, isEmail, isInteger, isNumber, isPort, isUrl } = require('../lib/validator');
 const { formatResults, formatSummary } = require('../lib/reporter');
+const { schemaFromPreset, presetNames } = require('../lib/presets');
+const { secretWarnings } = require('../lib/secrets');
 
 const DEFAULT_ENV_FILE = '.env';
 const DEFAULT_SCHEMA_FILE = '.env.schema';
@@ -17,8 +19,9 @@ ${chalk.bold('envguard')} validates .env files against a .env.schema file.
 
 ${chalk.bold('Usage')}
   envguard check [--env .env.production] [--schema .env.schema]
-  envguard check --strict --json
+  envguard check --strict --secrets --json
   envguard init [--schema .env.schema] [--from .env]
+  envguard init --preset nextjs
 
 ${chalk.bold('Commands')}
   check   Validate an env file
@@ -28,7 +31,9 @@ ${chalk.bold('Options')}
   --env       Env file to validate (default: .env)
   --schema    Schema file to use or create (default: .env.schema)
   --from      Generate a starter schema from an existing env file
+  --preset    Generate a schema for a common stack (${presetNames().join(', ')})
   --strict    Fail when the env file contains keys missing from the schema
+  --secrets   Run local secret hygiene checks and print warnings
   --json      Print machine-readable JSON instead of the table output
   --help      Show this help
 `);
@@ -37,12 +42,14 @@ ${chalk.bold('Options')}
 function starterSchema() {
   return [
     '# .env.schema',
-    '# Format: KEY:type:required|optional[:description]',
-    '# Optional regex: KEY:type:required:description:/pattern/',
+    '# Format: KEY:type:required|optional[:description][:/pattern/][:modifier]',
+    '# Modifiers: default=value, allow-empty, deprecated, deprecated=reason',
     '# Conditional rule: @require-if:KEY=value:TARGET[:reason]',
+    '# Conditional rule: @require-if-missing:SOURCE:TARGET[:reason]',
+    '# Conditional rule: @forbidden-if:KEY=value:TARGET[:reason]',
     '',
     'NODE_ENV:enum(development,test,production):required:Application environment',
-    'PORT:port:required:HTTP server port',
+    'PORT:port:required:HTTP server port:default=3000',
     'DATABASE_URL:url:required:Database connection URL',
     'ADMIN_EMAIL:email:optional:Admin contact email',
     'FEATURE_FLAGS:boolean:optional:Enable feature flags',
@@ -116,18 +123,21 @@ function cleanResult(result) {
     type: result.type,
     required: result.required,
     pass: result.pass,
+    severity: result.severity || (result.pass ? 'info' : 'error'),
     reason: result.reason
   };
 }
 
 function jsonSummary(results) {
   const failed = results.filter((result) => !result.pass).length;
-  const passed = results.length - failed;
+  const warnings = results.filter((result) => result.severity === 'warning').length;
+  const passed = results.length - failed - warnings;
 
   return {
     valid: failed === 0,
     summary: {
       passed,
+      warnings,
       failed,
       total: results.length
     },
@@ -143,6 +153,12 @@ function runInit(args) {
   const schemaPath = resolveFile(args.schema || DEFAULT_SCHEMA_FILE);
   const envPath = args.from ? resolveFile(args.from) : null;
 
+  if (args.from && args.preset) {
+    console.error(chalk.red('Choose either --from or --preset, not both.'));
+    process.exitCode = 1;
+    return;
+  }
+
   if (fs.existsSync(schemaPath)) {
     console.error(chalk.red('Schema already exists:'), schemaPath);
     process.exitCode = 1;
@@ -156,7 +172,21 @@ function runInit(args) {
   }
 
   try {
-    const content = envPath ? schemaFromEnv(parseEnvFile(envPath)) : starterSchema();
+    let content;
+
+    if (args.preset) {
+      content = schemaFromPreset(args.preset);
+
+      if (!content) {
+        console.error(chalk.red('Unknown preset:'), args.preset);
+        console.error(chalk.gray(`Available presets: ${presetNames().join(', ')}`));
+        process.exitCode = 1;
+        return;
+      }
+    } else {
+      content = envPath ? schemaFromEnv(parseEnvFile(envPath)) : starterSchema();
+    }
+
     fs.writeFileSync(schemaPath, content, 'utf8');
   } catch (error) {
     console.error(chalk.red('Could not create schema:'), error.message);
@@ -188,6 +218,10 @@ function runCheck(args) {
     const env = parseEnvFile(envPath);
     const schema = parseSchemaFile(schemaPath);
     const results = validate(env, schema, { strict: args.strict });
+    if (args.secrets) {
+      results.push(...secretWarnings(env));
+    }
+
     const failures = results.filter((result) => !result.pass);
 
     if (args.json) {
@@ -216,7 +250,9 @@ function main(argv) {
         env: { type: 'string' },
         schema: { type: 'string' },
         from: { type: 'string' },
+        preset: { type: 'string' },
         strict: { type: 'boolean', default: false },
+        secrets: { type: 'boolean', default: false },
         json: { type: 'boolean', default: false },
         help: { type: 'boolean', short: 'h', default: false }
       }

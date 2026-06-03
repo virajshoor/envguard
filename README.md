@@ -14,7 +14,6 @@
 
 [![npm version](https://img.shields.io/npm/v/@virajshoor/envguard.svg?logo=npm)](https://www.npmjs.com/package/@virajshoor/envguard)
 [![npm downloads](https://img.shields.io/npm/dm/@virajshoor/envguard.svg?logo=npm)](https://www.npmjs.com/package/@virajshoor/envguard)
-[![CI](https://github.com/virajshoor/envguard/actions/workflows/ci.yml/badge.svg)](https://github.com/virajshoor/envguard/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D18.3-339933.svg?logo=node.js&logoColor=white)](https://nodejs.org)
 [![dependencies](https://img.shields.io/badge/runtime%20deps-1-brightgreen.svg)](package.json)
@@ -49,8 +48,11 @@ FAIL   | ADMIN_EMAIL  | email  | no       | Expected a valid email address
 
 - **Typed validation** — `string`, `number`, `integer`, `float`, `boolean`, `url`, `email`, `port`, `json`, and `enum(...)`.
 - **Range and regex rules** — pin numeric values to ranges or strings to exact patterns.
-- **Cross-key rules** — require one key only when another key has a specific value.
+- **Schema ergonomics** — defaults, explicit empty values, deprecated keys, and comments.
+- **Cross-key rules** — require or forbid keys based on other local env values.
 - **Strict mode** — catch extra env keys that are missing from your schema.
+- **Secret hygiene** — optional local checks for placeholders, weak secrets, test keys, and localhost production values.
+- **Stack presets** — generate starter schemas for Next.js, Vite, Express, Prisma, Postgres, Stripe, Clerk, Auth.js, and Sentry.
 - **JSON output** — machine-readable results for bots, dashboards, and custom CI.
 - **CI-ready** — exits `1` on any failure so a bad env fails the pipeline.
 - **Offline-first** — zero network calls, zero telemetry. Runs fully air-gapped.
@@ -100,12 +102,21 @@ Generate a schema from an existing env file:
 envguard init --from .env.example
 ```
 
+Generate a schema for a common stack:
+
+```bash
+envguard init --preset nextjs
+envguard init --preset express
+envguard init --preset stripe
+```
+
 Validate a different env file or schema path:
 
 ```bash
 envguard check --env .env.production
 envguard check --env .env.staging --schema config/env.schema
 envguard check --strict --json
+envguard check --env .env.production --secrets
 ```
 
 ## The `.env.schema` format
@@ -113,7 +124,7 @@ envguard check --strict --json
 Each non-comment line defines one key:
 
 ```text
-KEY:type:required|optional[:description][:/regex/]
+KEY:type:required|optional[:description][:/regex/][:modifier]
 ```
 
 | Field | Required | Description |
@@ -123,16 +134,18 @@ KEY:type:required|optional[:description][:/regex/]
 | `required` / `optional` | yes | Whether the key must exist in the env file. |
 | `description` | no | Human context for the key. |
 | `/regex/` | no | Extra pattern the value must match after type validation. |
+| `modifier` | no | One or more of `default=value`, `allow-empty`, `deprecated`, or `deprecated=reason`. |
 
 Example:
 
 ```text
 # .env.schema
 NODE_ENV:enum(development,test,production):required:Application environment
-PORT:port:required:HTTP server port
+PORT:port:required:HTTP server port:default=3000
 DATABASE_URL:url:required:Database connection URL
 ADMIN_EMAIL:email:optional:Admin contact email
 FEATURE_FLAGS:boolean:optional:Enable feature flags
+LEGACY_API_TOKEN:string:optional:Old API token::deprecated=Use API_TOKEN instead
 SENTRY_DSN:url:optional:Sentry DSN
 @require-if:NODE_ENV=production:SENTRY_DSN:SENTRY_DSN is required in production
 ```
@@ -161,6 +174,25 @@ Empty values always fail, including optional keys that are present but blank:
 API_KEY=
 ```
 
+If a blank value is intentional, mark it explicitly:
+
+```text
+OPTIONAL_NOTE:string:optional:Free-form note::allow-empty
+```
+
+Defaults let a schema acknowledge app-level fallback behavior without requiring
+the value in every local env file:
+
+```text
+PORT:port:required:HTTP server port:default=3000
+```
+
+Deprecated keys produce warnings when they are still present:
+
+```text
+OLD_TOKEN:string:optional:Old token::deprecated=Use API_TOKEN instead
+```
+
 ### Dotenv parsing
 
 `envguard` supports common `.env` syntax: `export KEY=value`, quoted values,
@@ -171,16 +203,56 @@ do not get silently overwritten.
 
 ### Cross-key rules
 
-Use `@require-if` to make a key required only when another key has a specific
-value:
+Use `@require-if`, `@require-if-missing`, and `@forbidden-if` to express small
+relationships without leaving local validation:
 
 ```text
 SENTRY_DSN:url:optional:Sentry DSN
 @require-if:NODE_ENV=production:SENTRY_DSN:SENTRY_DSN is required in production
+
+DATABASE_URL:url:optional:Database URL
+DATABASE_SOCKET:string:optional:Database socket path
+@require-if-missing:DATABASE_URL:DATABASE_SOCKET:Use DATABASE_SOCKET when DATABASE_URL is absent
+
+PASSWORD_AUTH:boolean:required:Password auth enabled
+PASSWORD:string:optional:Password value
+@forbidden-if:PASSWORD_AUTH=false:PASSWORD:PASSWORD must not be set when password auth is disabled
 ```
 
 This keeps development env files lightweight while still protecting production
 config.
+
+### Presets
+
+Presets are local starter schemas. They are copied into your project and should
+be reviewed like any generated file:
+
+```bash
+envguard init --preset nextjs
+envguard init --preset vite
+envguard init --preset express
+envguard init --preset prisma
+envguard init --preset postgres
+envguard init --preset stripe
+envguard init --preset clerk
+envguard init --preset authjs
+envguard init --preset sentry
+```
+
+Presets do not fetch package metadata, call provider APIs, or inspect your app.
+They are deliberately small starting points.
+
+### Secret hygiene
+
+Run optional local checks for risky-looking config values:
+
+```bash
+envguard check --secrets
+```
+
+This reports warnings for patterns such as placeholder secrets, unusually short
+JWT secrets, test credentials in production, and production values pointing at
+localhost. It does not print env values and does not make network calls.
 
 ### Strict mode and JSON output
 
@@ -192,44 +264,19 @@ envguard check --strict
 ```
 
 JSON output is secret-safe by default: it reports keys, types, pass/fail status,
-and reasons without printing env values.
+severity, and reasons without printing env values.
 
 ```bash
 envguard check --json
 ```
 
-## Use in CI
+## Use in automation
 
-Use the reusable GitHub Action for one-line setup:
+Because `envguard` is just a CLI, any local or hosted automation can run the
+same command developers run:
 
-```yaml
-- uses: virajshoor/envguard@v1
-  with:
-    env: .env.example
-    schema: .env.schema
-    strict: true
-```
-
-Or run the CLI directly in GitHub Actions:
-
-```yaml
-name: CI
-
-on:
-  pull_request:
-  push:
-    branches: [main]
-
-jobs:
-  envguard:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm install -g @virajshoor/envguard
-      - run: envguard check --env .env.example --strict
+```bash
+envguard check --env .env.example --strict --secrets
 ```
 
 ## Privacy & offline-first
@@ -238,6 +285,21 @@ jobs:
 checks, no analytics. It reads and writes only the files you point it at, and
 works completely air-gapped. The single runtime dependency (`chalk`) is used
 purely for terminal colors.
+
+Generated preset schemas are bundled with the package. Secret hygiene checks are
+plain local string checks. JSON output intentionally omits env values.
+
+## Why envguard?
+
+Use `envguard` when you want a small, file-based guardrail around `.env` files
+without moving config validation into app runtime code.
+
+| Tooling style | Best when | Tradeoff |
+| --- | --- | --- |
+| `envguard` | You want local/automation checks before runtime, with no framework lock-in. | Uses its own compact `.env.schema` file. |
+| `dotenv-safe` | You only need required-key presence checks. | Does not provide typed validation or cross-key rules. |
+| Runtime validators like `envalid` or Zod | Your app should parse and coerce env at startup. | Validation happens inside app startup, not as a separate local gate. |
+| Framework-specific env systems | You are fully committed to one framework. | Less portable across tools, scripts, and services. |
 
 ## Local development
 

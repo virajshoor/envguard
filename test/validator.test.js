@@ -6,6 +6,8 @@ const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 const { parseEnvContent, parseSchemaContent } = require('../lib/parser');
 const { validate, checkType, isBoolean, isEmail, isJson, isPort, isUrl } = require('../lib/validator');
+const { schemaFromPreset } = require('../lib/presets');
+const { secretWarnings } = require('../lib/secrets');
 
 test('validates a correct env file', () => {
   const env = parseEnvContent(`
@@ -154,10 +156,91 @@ SENTRY_DSN:url:optional:Sentry DSN
   assert.equal(results.some((result) => result.key === 'SENTRY_DSN' && result.reason === 'Optional key not set'), false);
 });
 
+test('supports defaults, allow-empty, and deprecated warnings', () => {
+  const env = parseEnvContent(`
+LEGACY_TOKEN=old-token-value
+EMPTY_NOTE=
+`);
+  const schema = parseSchemaContent(`
+PORT:port:required:HTTP port:default=3000
+EMPTY_NOTE:string:optional:Can be empty::allow-empty
+LEGACY_TOKEN:string:optional:Old token::deprecated=Move to API_TOKEN
+`);
+  const results = validate(env, schema);
+
+  assert.equal(results.find((result) => result.key === 'PORT').reason, 'Default declared in schema');
+  assert.equal(results.find((result) => result.key === 'EMPTY_NOTE').pass, true);
+  assert.equal(results.find((result) => result.key === 'LEGACY_TOKEN').severity, 'warning');
+});
+
+test('rejects invalid defaults', () => {
+  const env = parseEnvContent('');
+  const schema = parseSchemaContent('PORT:port:optional:HTTP port:default=banana');
+  const [result] = validate(env, schema);
+
+  assert.equal(result.pass, false);
+  assert.equal(result.reason, 'Invalid schema default: Expected a port between 1 and 65535');
+});
+
+test('supports expanded conditional rules', () => {
+  const env = parseEnvContent(`
+NODE_ENV=production
+PASSWORD_AUTH=false
+PASSWORD=still-set
+`);
+  const schema = parseSchemaContent(`
+NODE_ENV:enum(development,test,production):required:Environment
+DATABASE_URL:url:optional:Primary database
+DATABASE_SOCKET:string:optional:Database socket
+PASSWORD_AUTH:boolean:required:Password auth
+PASSWORD:string:optional:Password
+@require-if-missing:DATABASE_URL:DATABASE_SOCKET:DATABASE_SOCKET is required without DATABASE_URL
+@forbidden-if:PASSWORD_AUTH=false:PASSWORD:PASSWORD must not be set when password auth is disabled
+`);
+  const results = validate(env, schema);
+
+  assert.equal(results.some((result) => result.key === 'DATABASE_SOCKET' && !result.pass), true);
+  assert.equal(results.some((result) => result.key === 'PASSWORD' && !result.pass), true);
+});
+
+test('rejects duplicate schema keys and dangling conditional references', () => {
+  assert.throws(
+    () => parseSchemaContent('PORT:port:required:HTTP port\nPORT:string:optional:Duplicate\n'),
+    /Duplicate schema key on line 2: PORT/
+  );
+  assert.throws(
+    () => parseSchemaContent('NODE_ENV:string:required:Environment\n@require-if:NODE_ENV=production:SENTRY_DSN\n'),
+    /Conditional rule references undeclared target key: SENTRY_DSN/
+  );
+});
+
+test('rejects malformed regex flags', () => {
+  assert.throws(
+    () => parseSchemaContent('NODE_ENV:string:required:Environment:/prod/z'),
+    /Invalid flags supplied to RegExp constructor/
+  );
+});
+
 test('rejects invalid type arguments and ranges', () => {
   assert.equal(checkType('ok', 'string(foo)'), 'Type "string" does not accept arguments');
   assert.equal(checkType('2', 'integer(1.5,3)'), 'Invalid integer range');
   assert.equal(checkType('2', 'number(10,1)'), 'Invalid number range');
+});
+
+test('reports secret hygiene warnings without failing validation', () => {
+  const env = parseEnvContent(`
+NODE_ENV=production
+JWT_SECRET=short
+DATABASE_URL=http://localhost:5432/app
+STRIPE_SECRET_KEY=sk_test_123
+`);
+  const warnings = secretWarnings(env);
+
+  assert.equal(warnings.every((result) => result.pass), true);
+  assert.equal(warnings.every((result) => result.severity === 'warning'), true);
+  assert.equal(warnings.some((result) => result.key === 'JWT_SECRET'), true);
+  assert.equal(warnings.some((result) => result.reason === 'Production value points at localhost'), true);
+  assert.equal(warnings.some((result) => result.reason === 'Production value looks like a test credential'), true);
 });
 
 test('prints machine-readable json without env values', () => {
@@ -182,6 +265,31 @@ test('prints machine-readable json without env values', () => {
   assert.equal(output.valid, false);
   assert.equal(output.results[0].key, 'PORT');
   assert.equal(Object.prototype.hasOwnProperty.call(output.results[0], 'value'), false);
+});
+
+test('prints json warning counts for secret checks', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'envguard-json-warn-'));
+  const envPath = path.join(directory, '.env');
+  const schemaPath = path.join(directory, '.env.schema');
+  fs.writeFileSync(envPath, 'NODE_ENV=production\nJWT_SECRET=abcdefghijklmnop\n', 'utf8');
+  fs.writeFileSync(schemaPath, 'NODE_ENV:string:required:Environment\nJWT_SECRET:string:required:JWT secret\n', 'utf8');
+
+  const result = spawnSync(process.execPath, [
+    path.join(__dirname, '..', 'bin', 'envguard.js'),
+    'check',
+    '--env',
+    envPath,
+    '--schema',
+    schemaPath,
+    '--secrets',
+    '--json'
+  ], { encoding: 'utf8' });
+
+  const output = JSON.parse(result.stdout);
+  assert.equal(result.status, 0);
+  assert.equal(output.valid, true);
+  assert.equal(output.summary.warnings, 1);
+  assert.equal(Object.prototype.hasOwnProperty.call(output.results.find((item) => item.key === 'JWT_SECRET'), 'value'), false);
 });
 
 test('generates a schema from an existing env file', () => {
@@ -212,4 +320,23 @@ test('generates a schema from an existing env file', () => {
   assert.match(schema, /FEATURE_FLAGS:boolean:required/);
   assert.match(schema, /MAX_RETRIES:integer:required/);
   assert.match(schema, /AIRPORT:integer:required/);
+});
+
+test('generates preset schemas', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'envguard-preset-'));
+  const schemaPath = path.join(directory, '.env.schema');
+
+  execFileSync(process.execPath, [
+    path.join(__dirname, '..', 'bin', 'envguard.js'),
+    'init',
+    '--preset',
+    'nextjs',
+    '--schema',
+    schemaPath
+  ], { encoding: 'utf8' });
+
+  const schema = fs.readFileSync(schemaPath, 'utf8');
+  assert.match(schema, /Generated by envguard init --preset nextjs/);
+  assert.match(schema, /AUTH_SECRET:string:optional/);
+  assert.equal(schemaFromPreset('unknown'), null);
 });
