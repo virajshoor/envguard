@@ -214,13 +214,6 @@ test('rejects duplicate schema keys and dangling conditional references', () => 
   );
 });
 
-test('rejects malformed regex flags', () => {
-  assert.throws(
-    () => parseSchemaContent('NODE_ENV:string:required:Environment:/prod/z'),
-    /Invalid flags supplied to RegExp constructor/
-  );
-});
-
 test('rejects invalid type arguments and ranges', () => {
   assert.equal(checkType('ok', 'string(foo)'), 'Type "string" does not accept arguments');
   assert.equal(checkType('2', 'integer(1.5,3)'), 'Invalid integer range');

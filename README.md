@@ -136,6 +136,9 @@ KEY:type:required|optional[:description][:/regex/][:modifier]
 | `/regex/` | no | Extra pattern the value must match after type validation. |
 | `modifier` | no | One or more of `default=value`, `allow-empty`, `deprecated`, or `deprecated=reason`. |
 
+The schema format is colon-delimited, so descriptions and modifiers should not
+contain raw `:` characters.
+
 Example:
 
 ```text
@@ -279,6 +282,17 @@ same command developers run:
 envguard check --env .env.example --strict --secrets
 ```
 
+As a GitHub Action:
+
+```yaml
+- uses: virajshoor/envguard@v1
+  with:
+    env: .env.example
+    schema: .env.schema
+    strict: 'true'
+    secrets: 'true'
+```
+
 ## Privacy & offline-first
 
 `envguard` makes **no outbound requests** of any kind — no telemetry, no update
@@ -306,6 +320,8 @@ without moving config validation into app runtime code.
 ```bash
 npm test                                  # run the test suite
 npm run lint                              # syntax-check every source file
+npm run smoke                             # run the bundled example check
+npm run pack:dry                          # preview npm package contents
 
 # run the CLI against the bundled examples
 node bin/envguard.js check \

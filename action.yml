@@ -18,6 +18,10 @@ inputs:
     description: Print machine-readable JSON.
     required: false
     default: 'false'
+  secrets:
+    description: Run local secret hygiene checks and print warnings.
+    required: false
+    default: 'false'
 
 runs:
   using: composite
@@ -37,6 +41,10 @@ runs:
 
         if [ "${{ inputs.json }}" = "true" ]; then
           args+=(--json)
+        fi
+
+        if [ "${{ inputs.secrets }}" = "true" ]; then
+          args+=(--secrets)
         fi
 
         node "$GITHUB_ACTION_PATH/bin/envguard.js" "${args[@]}"
