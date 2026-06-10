@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseSchemaContent } = require('../lib/parser');
+const { parseEnvContent, parseSchemaContent } = require('../lib/parser');
 
 test('parses regex flags and quoted default values with colons', () => {
   const schema = parseSchemaContent([
@@ -36,5 +36,44 @@ test('documents that raw colons in schema descriptions are ambiguous', () => {
   assert.throws(
     () => parseSchemaContent('PORT:port:required:HTTP: port'),
     /Invalid schema modifier on line 1: port/
+  );
+});
+
+test('rejects prototype-polluting env keys', () => {
+  assert.throws(
+    () => parseEnvContent('__proto__=evil'),
+    /Invalid .env key on line 1: __proto__/
+  );
+  assert.throws(
+    () => parseEnvContent('constructor=evil'),
+    /Invalid .env key on line 1: constructor/
+  );
+});
+
+test('rejects prototype-polluting schema keys', () => {
+  assert.throws(
+    () => parseSchemaContent('__proto__:string:required:Bad key'),
+    /Invalid schema key on schema line 1: __proto__/
+  );
+  assert.throws(
+    () => parseSchemaContent([
+      'NODE_ENV:string:required:Environment',
+      'SENTRY_DSN:url:optional:Sentry DSN',
+      '@require-if:__proto__=x:SENTRY_DSN',
+      ''
+    ].join('\n')),
+    /Invalid conditional source key on schema line 3: __proto__/
+  );
+});
+
+test('parsed env and schema objects have no inherited prototype', () => {
+  assert.equal(Object.getPrototypeOf(parseEnvContent('A=1')), null);
+  assert.equal(Object.getPrototypeOf(parseSchemaContent('A:string:required:x')), null);
+});
+
+test('sanitizes control characters in parse error messages', () => {
+  assert.throws(
+    () => parseEnvContent('BAD\u001b[31mKEY=x'),
+    (error) => !error.message.includes('\u001b') && /BAD\?\[31mKEY/.test(error.message)
   );
 });

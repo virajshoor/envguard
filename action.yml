@@ -32,18 +32,24 @@ runs:
 
     - name: Run envguard
       shell: bash
+      env:
+        ENVGUARD_ENV: ${{ inputs.env }}
+        ENVGUARD_SCHEMA: ${{ inputs.schema }}
+        ENVGUARD_STRICT: ${{ inputs.strict }}
+        ENVGUARD_JSON: ${{ inputs.json }}
+        ENVGUARD_SECRETS: ${{ inputs.secrets }}
       run: |
-        args=(check --env "${{ inputs.env }}" --schema "${{ inputs.schema }}")
+        args=(check --env "$ENVGUARD_ENV" --schema "$ENVGUARD_SCHEMA")
 
-        if [ "${{ inputs.strict }}" = "true" ]; then
+        if [ "$ENVGUARD_STRICT" = "true" ]; then
           args+=(--strict)
         fi
 
-        if [ "${{ inputs.json }}" = "true" ]; then
+        if [ "$ENVGUARD_JSON" = "true" ]; then
           args+=(--json)
         fi
 
-        if [ "${{ inputs.secrets }}" = "true" ]; then
+        if [ "$ENVGUARD_SECRETS" = "true" ]; then
           args+=(--secrets)
         fi
 

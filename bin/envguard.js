@@ -13,6 +13,10 @@ const { secretWarnings } = require('../lib/secrets');
 const DEFAULT_ENV_FILE = '.env';
 const DEFAULT_SCHEMA_FILE = '.env.schema';
 
+function sanitizeMessage(message) {
+  return String(message).replace(/[\u0000-\u001f\u007f-\u009f]/g, '?');
+}
+
 function printHelp() {
   console.log(`
 ${chalk.bold('envguard')} validates .env files against a .env.schema file.
@@ -178,7 +182,7 @@ function runInit(args) {
       content = schemaFromPreset(args.preset);
 
       if (!content) {
-        console.error(chalk.red('Unknown preset:'), args.preset);
+        console.error(chalk.red('Unknown preset:'), sanitizeMessage(args.preset));
         console.error(chalk.gray(`Available presets: ${presetNames().join(', ')}`));
         process.exitCode = 1;
         return;
@@ -189,7 +193,7 @@ function runInit(args) {
 
     fs.writeFileSync(schemaPath, content, 'utf8');
   } catch (error) {
-    console.error(chalk.red('Could not create schema:'), error.message);
+    console.error(chalk.red('Could not create schema:'), sanitizeMessage(error.message));
     process.exitCode = 1;
     return;
   }
@@ -235,7 +239,7 @@ function runCheck(args) {
       process.exitCode = 1;
     }
   } catch (error) {
-    console.error(chalk.red('Validation failed:'), error.message);
+    console.error(chalk.red('Validation failed:'), sanitizeMessage(error.message));
     process.exitCode = 1;
   }
 }
