@@ -20,6 +20,7 @@ test('prints help output', () => {
   assert.equal(result.status, 0);
   assert.match(result.stdout, /Usage/);
   assert.match(result.stdout, /--secrets/);
+  assert.match(result.stdout, /--debug/);
 });
 
 test('reports missing env and schema files', () => {
@@ -64,4 +65,24 @@ test('action metadata exposes the CLI secrets option', () => {
 
   assert.match(action, /secrets:/);
   assert.match(action, /args\+=\(--secrets\)/);
+});
+
+test('prints swallowed parse errors when --debug is set', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'envguard-cli-debug-'));
+  const envPath = path.join(directory, '.env');
+  const schemaPath = path.join(directory, '.env.schema');
+  fs.writeFileSync(envPath, 'DATABASE_URL=not-a-url\n', 'utf8');
+  fs.writeFileSync(schemaPath, 'DATABASE_URL:url:required:Database URL\n', 'utf8');
+
+  const silent = runCli(['check', '--env', envPath, '--schema', schemaPath], {
+    env: { ...process.env, DEBUG: '' }
+  });
+  const debug = runCli(['check', '--env', envPath, '--schema', schemaPath, '--debug'], {
+    env: { ...process.env, DEBUG: '' }
+  });
+
+  assert.equal(silent.status, 1);
+  assert.equal(debug.status, 1);
+  assert.equal(silent.stderr.includes('Invalid URL'), false);
+  assert.match(debug.stderr, /Invalid URL/);
 });

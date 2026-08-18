@@ -35,6 +35,11 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Run coverage
+        if: matrix.node-version == 22
+        continue-on-error: true
+        run: npm run test:coverage
+
       - name: Run lint
         run: npm run lint
 

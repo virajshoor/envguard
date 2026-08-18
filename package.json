@@ -3,6 +3,7 @@
   "version": "1.3.0",
   "description": "Validate .env files against a typed .env.schema before bad config breaks your deploy.",
   "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "bin": {
     "envguard": "bin/envguard.js"
   },
@@ -19,7 +20,8 @@
   ],
   "scripts": {
     "test": "node --test",
-    "lint": "node --check bin/envguard.js && node --check lib/index.js && node --check lib/parser.js && node --check lib/validator.js && node --check lib/reporter.js && node --check lib/presets.js && node --check lib/secrets.js && node --check test/*.test.js",
+    "test:coverage": "c8 npm test",
+    "lint": "eslint bin lib test && node --check bin/envguard.js && node --check lib/index.js && node --check lib/parser.js && node --check lib/validator.js && node --check lib/reporter.js && node --check lib/presets.js && node --check lib/secrets.js && node --check lib/debug.js && node --check test/api.test.js && node --check test/cli.test.js && node --check test/parser.test.js && node --check test/validator.test.js",
     "smoke": "node bin/envguard.js check --env examples/.env.example --schema examples/.env.schema.example --strict --secrets",
     "pack:dry": "npm pack --dry-run"
   },
@@ -53,5 +55,11 @@
   },
   "dependencies": {
     "chalk": "^4.1.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "c8": "^10.1.3",
+    "eslint": "^9.39.5",
+    "globals": "^17.11.0"
   }
 }

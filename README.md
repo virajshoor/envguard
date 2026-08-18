@@ -273,6 +273,16 @@ severity, and reasons without printing env values.
 envguard check --json
 ```
 
+### Debug logging
+
+Invalid URLs and JSON values fail closed by default. Set `DEBUG=1` or pass
+`--debug` to print the swallowed parser errors to stderr:
+
+```bash
+DEBUG=1 envguard check
+envguard check --debug
+```
+
 ## Use in automation
 
 Because `envguard` is just a CLI, any local or hosted automation can run the
@@ -319,7 +329,8 @@ without moving config validation into app runtime code.
 
 ```bash
 npm test                                  # run the test suite
-npm run lint                              # syntax-check every source file
+npm run test:coverage                     # run tests with c8 coverage
+npm run lint                              # ESLint plus syntax-check every source file
 npm run smoke                             # run the bundled example check
 npm run pack:dry                          # preview npm package contents
 

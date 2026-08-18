@@ -9,6 +9,7 @@ const { validate, isBoolean, isEmail, isInteger, isNumber, isPort, isUrl } = req
 const { formatResults, formatSummary } = require('../lib/reporter');
 const { schemaFromPreset, presetNames } = require('../lib/presets');
 const { secretWarnings } = require('../lib/secrets');
+const { debugCaught } = require('../lib/debug');
 
 const DEFAULT_ENV_FILE = '.env';
 const DEFAULT_SCHEMA_FILE = '.env.schema';
@@ -35,6 +36,7 @@ ${chalk.bold('Options')}
   --strict    Fail when the env file contains keys missing from the schema
   --secrets   Run local secret hygiene checks and print warnings
   --json      Print machine-readable JSON instead of the table output
+  --debug     Print swallowed parse errors to stderr
   --help      Show this help
 `);
 }
@@ -68,7 +70,8 @@ function looksLikeJson(value) {
   try {
     JSON.parse(trimmed);
     return true;
-  } catch (_error) {
+  } catch (error) {
+    debugCaught(error);
     return false;
   }
 }
@@ -254,6 +257,7 @@ function main(argv) {
         strict: { type: 'boolean', default: false },
         secrets: { type: 'boolean', default: false },
         json: { type: 'boolean', default: false },
+        debug: { type: 'boolean', default: false },
         help: { type: 'boolean', short: 'h', default: false }
       }
     });
@@ -266,6 +270,10 @@ function main(argv) {
 
   const args = parsed.values;
   const command = parsed.positionals[0];
+
+  if (args.debug) {
+    process.env.DEBUG = process.env.DEBUG || '1';
+  }
 
   if (args.help || !command) {
     printHelp();

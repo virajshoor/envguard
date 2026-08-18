@@ -70,6 +70,36 @@ test('checks supported types', () => {
   assert.equal(isJson('{enabled:true}'), false);
 });
 
+test('logs swallowed JSON and URL errors when DEBUG is set', () => {
+  const previous = process.env.DEBUG;
+  const logged = [];
+  const originalError = console.error;
+  console.error = (value) => {
+    logged.push(String(value));
+  };
+
+  try {
+    delete process.env.DEBUG;
+    assert.equal(isJson('{'), false);
+    assert.equal(isUrl('not-a-url'), false);
+    assert.equal(logged.length, 0);
+
+    process.env.DEBUG = '1';
+    assert.equal(isJson('{'), false);
+    assert.equal(isUrl('not-a-url'), false);
+    assert.equal(logged.length, 2);
+    assert.match(logged[0], /SyntaxError|JSON/);
+    assert.match(logged[1], /Invalid URL/);
+  } finally {
+    console.error = originalError;
+    if (previous === undefined) {
+      delete process.env.DEBUG;
+    } else {
+      process.env.DEBUG = previous;
+    }
+  }
+});
+
 test('enforces regex patterns', () => {
   const env = parseEnvContent('NODE_ENV=staging');
   const schema = parseSchemaContent('NODE_ENV:string:required:Environment:/^(development|test|production)$/');
