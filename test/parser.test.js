@@ -20,6 +20,32 @@ test('reports malformed regex flags with schema line context', () => {
   );
 });
 
+test('logs the original regex error when DEBUG is set', () => {
+  const previous = process.env.DEBUG;
+  const logged = [];
+  const originalError = console.error;
+  console.error = (value) => {
+    logged.push(String(value));
+  };
+
+  try {
+    process.env.DEBUG = '1';
+    assert.throws(
+      () => parseSchemaContent('NODE_ENV:string:required:Environment:/prod/z'),
+      /Invalid regex on schema line 1/
+    );
+    assert.equal(logged.length, 1);
+    assert.match(logged[0], /Invalid flags supplied to RegExp constructor/);
+  } finally {
+    console.error = originalError;
+    if (previous === undefined) {
+      delete process.env.DEBUG;
+    } else {
+      process.env.DEBUG = previous;
+    }
+  }
+});
+
 test('rejects malformed conditional expressions clearly', () => {
   assert.throws(
     () => parseSchemaContent([
